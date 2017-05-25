@@ -2,8 +2,12 @@ package sample.change.me.clothesdetect;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Menu;
@@ -20,9 +24,11 @@ import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
+import org.opencv.core.Range;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.highgui.Highgui;
 import org.opencv.objdetect.CascadeClassifier;
 
 import java.io.File;
@@ -32,14 +38,19 @@ import java.io.InputStream;
 
 public class MainActivity extends Activity implements CvCameraViewListener2 {
 
-
+    private final static String ALBUM_PATH = Environment.getExternalStorageDirectory() + "/opencv/";
     private static final String TAG = "OCVSample::Activity";
     private static int width;
     private static int height;
     private static int scannWidth=0;
     private static int scannHeight=0;
+    private static boolean flag=true;
+    private static Handler handler=new Handler(Looper.getMainLooper());
+
     private static final Scalar FACE_RECT_COLOR = new Scalar(0, 255, 0, 255);
-    private static final Scalar SCAANER_RECT_COLOR = new Scalar(200, 200,200, 100);
+    private static final Scalar SCAANER_RECT_COLOR = new Scalar(127,180,70, 100);
+    private static int speed=5;
+    private static final int SIZE=300;
     public static final int JAVA_DETECTOR = 0;
 
     public static final int NATIVE_DETECTOR = 1;
@@ -92,18 +103,18 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
 
                     // Load native libraryafter(!) OpenCV initialization
 
-//                    System.loadLibrary("Demo_NDK");
+                    System.loadLibrary("OPEN_CV");
                     try {
 
                         // load cascade filefrom application resources
 
-                        InputStream is = getResources().openRawResource(R.raw.cascade1);
+                        InputStream is = getResources().openRawResource(R.raw.cascade);
 
 //这里去加载人脸识别分类文件（lbpcascade_frontalface.XML 是XML文件，这都是利用Opencv给我们提供好的XML人脸识别分类文件，在opencv/source/data/目录下,这里把那个文件拉到了Raw资源文件里面，方便Android调用，如果要自己实现一个XML人脸识别分类文件的话，需要用到opencv_haartraining，来训练大量数据，最终生成XML人脸识别分类文件）
 
                         File cascadeDir = getDir("cascade", Context.MODE_PRIVATE);
 
-                        mCascadeFile = new File(cascadeDir, "cascade1.xml");
+                        mCascadeFile = new File(cascadeDir, "cascade.xml");
 
                         FileOutputStream os = new FileOutputStream(mCascadeFile);
 
@@ -272,9 +283,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
     public void onResume()
 
     {
-
+        flag=true;
         super.onResume();
-
         OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_10, this, mLoaderCallback);
 
     }
@@ -311,12 +321,13 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
 
         //这里获取相机拍摄到的原图，彩色图
         mRgba = inputFrame.rgba();
-
+        Mat tempRgba=new Mat();
+        mRgba.copyTo(tempRgba);
 //这里获取相机拍摄到的灰度图，用来给下面检测人脸使用。
 
         mGray = inputFrame.gray();
-
-
+        Mat temp= new Mat(mGray,new Range(height/2-SIZE,height/2+SIZE),new Range(width/2-SIZE,width/2+SIZE));
+//        Highgui.imwrite(ALBUM_PATH+"1.jpg",temp);
         if (mAbsoluteFaceSize == 0) {
 
             int height = mGray.rows();
@@ -353,13 +364,13 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
         CV_HAAR_DO_ROUGH_SEARCH只做初略检测
 */
 
-                /*mJavaDetector.detectMultiScale(mGray, faces, 1.1, 2, 2, // TODO:objdetect.CV_HAAR_SCALE_IMAGE
+                mJavaDetector.detectMultiScale(temp, faces, 1.1, 2, 2, // TODO:objdetect.CV_HAAR_SCALE_IMAGE
 
-                        new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());*/
+                        new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
                 Log.d(TAG, "onCameraFrame: -----------------------------------------"+mAbsoluteFaceSize);
-                mJavaDetector.detectMultiScale(mGray, faces, 1.1, 2, 2, // TODO:objdetect.CV_HAAR_SCALE_IMAGE
+             /*   mJavaDetector.detectMultiScale(mGray, faces, 1.1, 2, 2, // TODO:objdetect.CV_HAAR_SCALE_IMAGE
 
-                        new Size(100, 100), new Size(150,150));
+                        new Size(150, 150), new Size(250,250));*/
 
         }
         /*else if (mDetectorType == NATIVE_DETECTOR) {
@@ -374,24 +385,41 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
 
         }*/
 
-
-        scannHeight+=10;
+        scannHeight+=speed;
+        speed++;
         Rect[] facesArray = faces.toArray();
-        if(scannHeight==height/2+300){
-            scannHeight=height/2-300;
+        if(scannHeight>=height/2+SIZE){
+            scannHeight=height/2-SIZE;
+            speed=5;
         }
-        Core.line(mRgba,new Point(300,scannHeight),new Point(scannWidth,scannHeight),SCAANER_RECT_COLOR,2);
+        Core.line(mRgba,new Point(width/2-SIZE,scannHeight),new Point(scannWidth,scannHeight),SCAANER_RECT_COLOR,2);
 
-        for (int i = 0; i < facesArray.length; i++)
+        for (int i = 0; i < facesArray.length; i++) {
 
 //在原图mRgba上为每个检测到的人脸画一个绿色矩形
-
-            Core.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), FACE_RECT_COLOR, 3);
-
-        //返回处理好的图像，返回后会直接显示在JavaCameraView上。
-
+            int x = facesArray[i].x + height/2;
+            int y = facesArray[i].y +60;
+            int tmpWidth=x+facesArray[i].width;
+            int tmpHeight=y+facesArray[i].height;
+//            Core.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), FACE_RECT_COLOR, 3);
+                    Core.rectangle(mRgba, new Point(x, y), new Point(tmpWidth,tmpHeight), FACE_RECT_COLOR, 3);
+            //返回处理好的图像，返回后会直接显示在JavaCameraView上。
+            Mat mat= new Mat(tempRgba, new Rect(x,y,facesArray[i].width,facesArray[i].height));
+            final String path =ALBUM_PATH+"1.jpg";
+            Highgui.imwrite(path,mat);
+            if(flag){
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        Intent intent=new Intent(MainActivity.this,SearchActivity.class);
+                        intent.putExtra("path",path);
+                        startActivity(intent);
+                    }
+                },3000);
+                flag=false;
+            }
+        }
         return mRgba;
-
     }
 
 
