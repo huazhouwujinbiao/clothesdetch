@@ -244,7 +244,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
 
          */
 
-        this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_main);
 
@@ -258,8 +258,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
         height=dm.heightPixels;
 
         width=dm.widthPixels;
-        scannWidth=width/2+300;
-        scannHeight=height/2-300;
+        scannWidth=width/2+SIZE;
+        scannHeight=height/2-SIZE;
     }
 
 
@@ -323,11 +323,9 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
         mRgba = inputFrame.rgba();
         Mat tempRgba=new Mat();
         mRgba.copyTo(tempRgba);
-//这里获取相机拍摄到的灰度图，用来给下面检测人脸使用。
 
         mGray = inputFrame.gray();
         Mat temp= new Mat(mGray,new Range(height/2-SIZE,height/2+SIZE),new Range(width/2-SIZE,width/2+SIZE));
-//        Highgui.imwrite(ALBUM_PATH+"1.jpg",temp);
         if (mAbsoluteFaceSize == 0) {
 
             int height = mGray.rows();
@@ -419,6 +417,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2 {
                 flag=false;
             }
         }
+        tempRgba.release();
         return mRgba;
     }
 
